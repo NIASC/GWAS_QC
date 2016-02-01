@@ -5,7 +5,7 @@ Only works on Atlas!
 @author: paakkone
 '''
 
-__version__= "1.0"
+__version__= "1.1"
 
 import os
 import sys
@@ -161,6 +161,14 @@ class GWAS_QC(object):
             out_fn = os.path.join(self.args.output_dir, self.dataset_name)
         if in_fn == None:
             in_fn = self.args.input
+        for ending in [".bim", ".bed", ".fam"]:
+            fn = in_fn + ending
+            if not os.path.exists(fn):
+                print ("Plink input file %s does not exist!" % fn)
+                return None
+            if not os.path.isfile(fn):
+                print ("Plink input file %s is not a file!" % fn)
+                return None
         # start command and input file
         cmd = "%s --bfile %s" % (self.args.plink_path, in_fn)
         for sw in switches:
@@ -174,18 +182,32 @@ class GWAS_QC(object):
         builds and runs plink command
         """
         cmd = self.buildPlinkCommand(switches, in_fn, out_fn)
+        if cmd == None:
+            print ("Could not run plink, exiting program")
+            sys.exit()
         #print ("Run command %s" % cmd)
         self.runCommand(cmd)
+        return True
+        
+    def runCommand(self, cmd):
+        if os.name == "posix":
+        # run SNPTest only in linux, otherwise unit tests will always fail
+            print ("Running plink: %s" % cmd)
+            p = subprocess.Popen(cmd.split(), stdin = subprocess.PIPE, stdout = subprocess.PIPE, close_fds = True)
+            p.wait()
         
     def filterBySex(self, in_fn):
         """
         Steps 4-6
         """
         fail_type = "sex"
-        check_fn = in_fn + "_%s" % fail_type
+        root, head = os.path.split(in_fn)
+        check_fn = head + "_%s" % fail_type
+        check_fn = os.path.join(self.args.output_dir, check_fn)
         self.runPlinkCommand(["--check-sex"], in_fn, check_fn)
         # find problematic individuals
         fn = "%s.sexcheck" % check_fn
+        #print ("in_fn: %s, \ncheck_fn: %s\nfn:%s" % (in_fn, check_fn, fn))
         with open(fn) as in_f:
             for line in in_f:
                 words = line.split()
@@ -281,8 +303,8 @@ class GWAS_QC(object):
         y_title = "Heterozygosity rate"
         plotter = Plotter()
         col_map = plotter.plotScatterPlot(out_fn, fmiss_vals, het_vals, x_val_limit = fmiss_limit, 
-                                          chosen_std_limit = std, figure_title = figure_title, 
-                                          x_title = x_title, y_title = y_title)
+                                          y_std_limit = std, figure_title = figure_title, 
+                                          x_title = x_title, y_title = y_title, x_log_scale = True)
         return self.writeRemoveFileAndRemoveIndividuals(fail_type, in_fn)
         
     def filterDuplicates(self, in_fn):
@@ -348,16 +370,18 @@ class GWAS_QC(object):
         clean_set_fn = self.writeRemoveFileAndRemoveIndividuals(fail_type, in_fn)
         return clean_set_fn, genome_fn
         
-    def runCommand(self, cmd):
-        if os.name == "posix":
-        # run SNPTest only in linux, otherwise unit tests will always fail
-            print ("Running plink: %s" % cmd)
-            p = subprocess.Popen(cmd.split(), stdin = subprocess.PIPE, stdout = subprocess.PIPE, close_fds = True)
-            p.wait()
-    
     def writeFailedSamplesFile(self, fn, fail_type = None):
         self.failed_samples.writeFailedSamplesFile(fn, fail_type)
         
+    def getSTDLimits(self, c1_vals, c2_vals, c1_std, c2_std):
+        mean1 = numpy.mean(c1_vals)
+        std1 = numpy.std(c1_vals, ddof=1)
+        upper_c1 = mean1 + (c1_std * std1)
+        
+        mean2 = numpy.mean(c2_vals)
+        std2 = numpy.std(c2_vals, ddof=1)
+        lower_c2 = mean2 - (c2_std * std2)
+        return upper_c1, lower_c2
     
     def filterMultiDimensionalScaling(self, input_fn, gen_fn):
         """
@@ -372,7 +396,10 @@ class GWAS_QC(object):
         header = True
         c1_vals = []
         c2_vals = []
-        c2_limit = float(self.args.mds)
+        c1_limit = float(self.args.C1)
+        c2_limit = float(self.args.C2)
+        
+        mds_data = []
         with open(mds_fn) as mds_f:
             for line in mds_f:
                 if header:
@@ -382,24 +409,41 @@ class GWAS_QC(object):
                     words = line.split()
                     fid = words[0]
                     iid = words[1]
-                    c1 =float(words[3])
+                    c1 = float(words[3])
                     c2 = float(words[4])
                     c1_vals.append(c1)
                     c2_vals.append(c2)
-                    if c2 <= c2_limit:
-                        print (line)
-                        self.failed_samples.addSample(fid, iid, fail_type)
+                    mds_data.append([fid, iid, c1, c2])
+        
+        c1_std_upper_limit, c2_std_lower_limit = self.getSTDLimits(c1_vals, c2_vals, c1_limit, c2_limit)            
+                    
+        for fid, iid, c1, c2 in mds_data:
+            if c1_limit > 0:
+                if c1 >= c1_std_upper_limit:
+                    print ("C1 >= limit:IID: %s %3.3f >= %3.3f" % (iid, c1, c1_limit))
+                    self.failed_samples.addSample(fid, iid, fail_type)
+            if c2_limit > 0:
+                if c2 <= c2_std_lower_limit:
+                    print ("C2 <= limit:IID: %s %3.3f <= %3.3f" % (iid, c2, c2_limit))
+                    #print (line)
+                    self.failed_samples.addSample(fid, iid, fail_type)
         # values gathered, make scatter plot
         figure_title = "Principal components C1 and C2"
         x_title = "C1"
         y_title = "C2"
-        std = 100
+        #std = 0.1
         out_fn = os.path.join(self.args.output_dir, "C1_and_C2_PCA_values.png")
+        if c1_limit <= 1:
+            c1_limit = None
+        if c2_limit <= 1:
+            c2_limit = None
         plotter = Plotter()
-        col_map = plotter.plotScatterPlot(out_fn, c1_vals, c2_vals, y_val_limit= c2_limit, 
-                                               chosen_std_limit = std,
-                                               figure_title = figure_title, x_title = x_title, 
-                                               y_title = y_title, x_log_scale = False)
+        col_map = plotter.plotScatterPlot(out_fn, c1_vals, c2_vals, x_std_limit = c1_limit, y_std_limit = c2_limit, 
+                                          figure_title = figure_title, x_title = x_title,
+                                          y_title = y_title, plot_std_y_axis = True)
+#         col_map = plotter.plotScatterPlot(out_fn, c1_vals, c2_vals, y_val_limit= c2_limit, 
+#                                           figure_title = figure_title, x_title = x_title,
+#                                           y_title = y_title, plot_std_y_axis = True)
         return self.writeRemoveFileAndRemoveIndividuals(fail_type, input_fn)
     
 #     def filterMissingDataRate(self, input_fn):
@@ -490,7 +534,8 @@ class GWAS_QC(object):
             out_f.write("Missingness rate:\t%3.5f\n" % self.args.missingness)
             out_f.write("Heterozygosity rate:\t%3.5f * SD\n" % self.args.heterozygosity)
             out_f.write("Pi-hat value:\t%3.5f\n" % self.args.pi_hat)
-            out_f.write("MDS cutoff:\t%3.5f\n" % self.args.mds)
+            out_f.write("Principal component 1 cutoff:\t%3.5f * SD\n" % self.args.C1)
+            out_f.write("Principal component 2 cutoff:\t%3.5f * SD\n" % self.args.C2)
             out_f.write("Call rate limit:\t%3.5f\n" % self.args.geno)
             out_f.write("HWE limit:\t%3.5f\n" % self.args.hwe)
             out_f.write("MAC limit for imputation:\t%3.5f\n" % self.args.mac)
@@ -512,9 +557,11 @@ def parseArguments(args):
     parser = argparse.ArgumentParser(description = "Run QC filtering on GWAS datasets")
     parser.add_argument("--input", help = "Path to the dataset to be filtered")
     parser.add_argument("--output_dir", help = "Directory for the output files", required = True)
-    parser.add_argument("--mds", help = "MDS value, default is -0.06", type = float, default = -0.06)
     parser.add_argument("--missingness", help = "Missingness limit, default is 0.05", type = float, default = 0.05)
     parser.add_argument("--heterozygosity", help = "Heterozygosity limit, default is 4.0 * sd", type = float, default = 4)
+    parser.add_argument("--C1", help = "Principal component 1, default is sd * 4", type = float, default = 4)
+    parser.add_argument("--C2", help = "Principal component 2, default is sd * 4", type = float, default = 4)
+    #parser.add_argument("--C2", help = "Principal component 2, default is -0.06", type = float, default = -0.06)
     parser.add_argument("--pi_hat", help = "Pi-hat value of the genome file, default is 0.1", type = float, default = 0.1)
     parser.add_argument("--hwe", help = "HWE limit, default is 0.000001", type = float, default = 0.000001)
     parser.add_argument("--geno", help = "Call rate limit, default is 0.02", type = float, default = 0.02)
