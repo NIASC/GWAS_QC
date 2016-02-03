@@ -5,7 +5,7 @@ Only works on Atlas!
 @author: paakkone
 '''
 
-__version__= "1.1"
+__version__= "1.11"
 
 import os
 import sys
@@ -24,6 +24,9 @@ class Sample(object):
         self.indiv_id = indiv_id
         self.fam_id = fam_id
         self.fail_type = fail_type
+    
+    def getFailType(self):
+        return self.fail_type
     
     def getIDs(self):
         return self.indiv_id, self.fam_id, self.fail_type
@@ -62,6 +65,17 @@ class FailedSamples(object):
                         indiv_ids_found.append(indiv_id)
                         out_f.write("%s\t%s\n" % (indiv_id, fam_id))
         out_f.close()
+        
+    def getFailCount(self, fail_type):
+        if fail_type not in self.fail_types:
+            print ("Unknown fail type %s" % fail_type)
+            print ("Allowed fail types: %s" % self.fail_types)
+            raise ValueError(fail_type)
+        fail_no = 0
+        for sample in self.failed:
+            if sample.getFailType() == fail_type:
+                fail_no += 1
+        return fail_no
         
     def __getitem__(self, i):
         return self.failed[i]
@@ -325,16 +339,16 @@ class GWAS_QC(object):
         genome_fn = "%s.genome" % out_fn
         remove = []
         key_counter = {}
-        header = True
-        repeat_limit = 15
+        repeat_limit = int(self.args.repeat)
         pihat_over_limit = []
+        header_row = []
         with open(genome_fn) as in_f:
             for line in in_f:
-                if header:
+                words = line.split()
+                if len(header_row) == 0:
                     # skip header
-                    header = False
+                    header_row = [words[0],words[1],words[2],words[3],words[9]]
                 else:
-                    words = line.split()
                     fid1 = words[0]
                     iid1 = words[1]
                     fid2 = words[2]
@@ -355,7 +369,12 @@ class GWAS_QC(object):
         # go through the pihat list again and remove those who will be removed
         fn = "PI_hat_over_%1.2f.txt" % self.args.pi_hat
         out_fn = os.path.join(self.args.output_dir, fn)
+        h_row = ""
+        #print ("HEADER ROW: %s" % header_row)
         with open(out_fn, 'w') as out_f:
+            for header in header_row:
+                h_row += "%s\t" % header
+            out_f.write("%s\n" % h_row[:-1])
             for key1, key2, pi_hat in pihat_over_limit:
                 if (key1 in remove) or (key2 in remove):
                     pass
@@ -420,11 +439,11 @@ class GWAS_QC(object):
         for fid, iid, c1, c2 in mds_data:
             if c1_limit > 0:
                 if c1 >= c1_std_upper_limit:
-                    print ("C1 >= limit:IID: %s %3.3f >= %3.3f" % (iid, c1, c1_limit))
+                    #print ("C1 >= limit:IID: %s %3.3f >= %3.3f" % (iid, c1, c1_limit))
                     self.failed_samples.addSample(fid, iid, fail_type)
             if c2_limit > 0:
                 if c2 <= c2_std_lower_limit:
-                    print ("C2 <= limit:IID: %s %3.3f <= %3.3f" % (iid, c2, c2_limit))
+                    #print ("C2 <= limit:IID: %s %3.3f <= %3.3f" % (iid, c2, c2_limit))
                     #print (line)
                     self.failed_samples.addSample(fid, iid, fail_type)
         # values gathered, make scatter plot
@@ -531,11 +550,19 @@ class GWAS_QC(object):
         report_fn = os.path.join(self.args.output_dir, self.args.report_fn)
         with open(report_fn, 'w') as out_f:
             out_f.write("Input dataset:\t%s\n" % self.args.input)
+            no_removed = self.failed_samples.getFailCount("sex")
+            out_f.write("Removed %d samples in sex check\n" % (no_removed))
             out_f.write("Missingness rate:\t%3.5f\n" % self.args.missingness)
             out_f.write("Heterozygosity rate:\t%3.5f * SD\n" % self.args.heterozygosity)
+            no_removed = self.failed_samples.getFailCount("miss_and_het")
+            out_f.write("Removed %d samples in missingness and heterotsygosity check\n" % (no_removed))
             out_f.write("Pi-hat value:\t%3.5f\n" % self.args.pi_hat)
+            no_removed = self.failed_samples.getFailCount("ibd")
+            out_f.write("Removed %d samples in contamination check\n" % (no_removed))
             out_f.write("Principal component 1 cutoff:\t%3.5f * SD\n" % self.args.C1)
             out_f.write("Principal component 2 cutoff:\t%3.5f * SD\n" % self.args.C2)
+            no_removed = self.failed_samples.getFailCount("mds")
+            out_f.write("Removed %d samples in multidimensional scaling check\n" % (no_removed))
             out_f.write("Call rate limit:\t%3.5f\n" % self.args.geno)
             out_f.write("HWE limit:\t%3.5f\n" % self.args.hwe)
             out_f.write("MAC limit for imputation:\t%3.5f\n" % self.args.mac)
@@ -566,6 +593,8 @@ def parseArguments(args):
     parser.add_argument("--hwe", help = "HWE limit, default is 0.000001", type = float, default = 0.000001)
     parser.add_argument("--geno", help = "Call rate limit, default is 0.02", type = float, default = 0.02)
     parser.add_argument("--mac", help = "MAC treshold for imputation, default is 3", type = float, default = 3)
+    parser.add_argument("--repeat", help = "Removing duplicates who's entry is repeated more than this limit (due to contamination). Default is 15",
+                        type = int, default = 15)
     parser.add_argument("--plink_path", help = "Path to the plink executable", default = "/apps/genetics/bin/plink-1.9")
     parser.add_argument("--report_fn", help = "Analysis report file name", default = "analysis_report.txt")
     return parser.parse_args(args)
