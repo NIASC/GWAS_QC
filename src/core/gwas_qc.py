@@ -5,7 +5,7 @@ Only works on Atlas!
 @author: paakkone
 '''
 
-__version__= "1.11"
+__version__= "1.12"
 
 import os
 import sys
@@ -31,9 +31,6 @@ class Sample(object):
     def getIDs(self):
         return self.indiv_id, self.fam_id, self.fail_type
         
-#     def getPlinkSampleFileRow(self):
-#         return "%s\t%s" % (self.indiv_id, self.fam_id)
-
 class FailedSamples(object):
     """
     Stores the sample ID's for failed cases
@@ -137,7 +134,6 @@ class IMissFile(object):
         Gets the index number and returns the corresponding FID and IID
         """
         keys = list(self.samples.keys())
-        #print ("Keys[i] %s, keys[i].split(): %s" % (keys[i], keys[i].split(self.delim)))
         return keys[i].split(self.delim)
         
         
@@ -199,7 +195,6 @@ class GWAS_QC(object):
         if cmd == None:
             print ("Could not run plink, exiting program")
             sys.exit()
-        #print ("Run command %s" % cmd)
         self.runCommand(cmd)
         return True
         
@@ -221,7 +216,6 @@ class GWAS_QC(object):
         self.runPlinkCommand(["--check-sex"], in_fn, check_fn)
         # find problematic individuals
         fn = "%s.sexcheck" % check_fn
-        #print ("in_fn: %s, \ncheck_fn: %s\nfn:%s" % (in_fn, check_fn, fn))
         with open(fn) as in_f:
             for line in in_f:
                 words = line.split()
@@ -232,7 +226,6 @@ class GWAS_QC(object):
                         fam_id = words[0]
                         p_id = words[1]
                         self.failed_samples.addSample(fam_id, p_id, fail_type)
-        #print ("No failed samples: %d" % len(self.failed_samples))
         return self.writeRemoveFileAndRemoveIndividuals(fail_type, in_fn, use_original = True)
 
     
@@ -370,7 +363,6 @@ class GWAS_QC(object):
         fn = "PI_hat_over_%1.2f.txt" % self.args.pi_hat
         out_fn = os.path.join(self.args.output_dir, fn)
         h_row = ""
-        #print ("HEADER ROW: %s" % header_row)
         with open(out_fn, 'w') as out_f:
             for header in header_row:
                 h_row += "%s\t" % header
@@ -439,18 +431,14 @@ class GWAS_QC(object):
         for fid, iid, c1, c2 in mds_data:
             if c1_limit > 0:
                 if c1 >= c1_std_upper_limit:
-                    #print ("C1 >= limit:IID: %s %3.3f >= %3.3f" % (iid, c1, c1_limit))
                     self.failed_samples.addSample(fid, iid, fail_type)
             if c2_limit > 0:
                 if c2 <= c2_std_lower_limit:
-                    #print ("C2 <= limit:IID: %s %3.3f <= %3.3f" % (iid, c2, c2_limit))
-                    #print (line)
                     self.failed_samples.addSample(fid, iid, fail_type)
         # values gathered, make scatter plot
         figure_title = "Principal components C1 and C2"
         x_title = "C1"
         y_title = "C2"
-        #std = 0.1
         out_fn = os.path.join(self.args.output_dir, "C1_and_C2_PCA_values.png")
         if c1_limit <= 1:
             c1_limit = None
@@ -460,27 +448,8 @@ class GWAS_QC(object):
         col_map = plotter.plotScatterPlot(out_fn, c1_vals, c2_vals, x_std_limit = c1_limit, y_std_limit = c2_limit, 
                                           figure_title = figure_title, x_title = x_title,
                                           y_title = y_title, plot_std_y_axis = True)
-#         col_map = plotter.plotScatterPlot(out_fn, c1_vals, c2_vals, y_val_limit= c2_limit, 
-#                                           figure_title = figure_title, x_title = x_title,
-#                                           y_title = y_title, plot_std_y_axis = True)
         return self.writeRemoveFileAndRemoveIndividuals(fail_type, input_fn)
     
-#     def filterMissingDataRate(self, input_fn):
-#         """
-#         Filtering for excessive missing data rate (step 22) for the cleaned data set
-#         """
-#         out_fn = input_fn + "_missing"
-#         self.runPlinkCommand(["--missing"], input_fn, out_fn)
-#         fmiss_vals = []
-#         fn = "%s.lmiss" % out_fn
-#         with open(fn) as in_f:
-#             for i, line in enumerate(in_f):
-#                 if i > 0:
-#                     # skipping header line
-#                     words = line.split()
-#                     fmiss_vals.append(float(words[4]))
-#         self.plotter.plotHistogram(fmiss_vals)
-        
     def filterSNPExclusion(self, input_fn):
         out_fn = input_fn + "_QCed"
         switch1 = "--geno %s" % self.args.geno
@@ -572,7 +541,6 @@ class GWAS_QC(object):
         cleaned_fn = self.filterHeterozygosityAndMissingRate(cleaned_fn)
         cleaned_fn, genome_fn = self.filterDuplicates(cleaned_fn)
         cleaned_fn = self.filterMultiDimensionalScaling(cleaned_fn, genome_fn)
-        #cleaned_fn = self.filterMissingDataRate(cleaned_fn)
         cleaned_fn = self.filterSNPExclusion(cleaned_fn)
         cleaned_fn = self.filterForImputation(cleaned_fn)
         self.writeAnalysisReport()
@@ -588,7 +556,6 @@ def parseArguments(args):
     parser.add_argument("--heterozygosity", help = "Heterozygosity limit, default is 4.0 * sd", type = float, default = 4)
     parser.add_argument("--C1", help = "Principal component 1, default is sd * 4", type = float, default = 4)
     parser.add_argument("--C2", help = "Principal component 2, default is sd * 4", type = float, default = 4)
-    #parser.add_argument("--C2", help = "Principal component 2, default is -0.06", type = float, default = -0.06)
     parser.add_argument("--pi_hat", help = "Pi-hat value of the genome file, default is 0.1", type = float, default = 0.1)
     parser.add_argument("--hwe", help = "HWE limit, default is 0.000001", type = float, default = 0.000001)
     parser.add_argument("--geno", help = "Call rate limit, default is 0.02", type = float, default = 0.02)

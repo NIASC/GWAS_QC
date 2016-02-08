@@ -8,10 +8,6 @@ import numpy
 import matplotlib
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
-# matplotlib.use('Agg')
-# import matplotlib.pyplot as plt
-
-#print ("Matplotlib backend: %s" % matplotlib.get_backend())
 
 class Plotter(object):
     """
@@ -19,41 +15,18 @@ class Plotter(object):
     """
     def __init__(self):
         pass
-    
-            
-#     def getMADLimits(self, x, no_stds = 3, mad_to_std = False, double = False):
-#         """
-#         Calculates limits using median-absolute-deviation
-#         """
-#         x = numpy.array(x)
-#         # check that less than 50 % of values are median
-#         unique, counts = numpy.unique(x, return_counts = True)
-#         max_count = max(counts)
-#         #print ("No values: %d,  max_no_same_value: %d" % (len(x), max_count))
-#         if max_count >= (0.5 * len(x)):
-#             raise ValueError
-#         median = numpy.median(x)
-#         if double:
-#             deviations = x - median
-#             upper_devs = [dev for dev in deviations if dev >= 0]
-#             upper_mad = numpy.median(upper_devs)
-#             lower_devs = [dev for dev in deviations if dev <= 0]
-#             lower_mad = numpy.median(lower_devs)
-#             #print ("median: %s, no_x: %s, no_abs_dev: %s" % (median, len(x), len(abs_dev)))
-#             upper = median + (no_stds * upper_mad)
-#             lower = median + (no_stds * lower_mad)
-#             print ("Upper MAD: %s, lower MAD: %s" % (upper_mad, lower_mad))
-#         else:
-#             abs_dev = abs(x - median)
-#             if mad_to_std:
-#                 mad = 1.4826 * numpy.median(abs_dev)
-#             else:
-#                 mad = numpy.median(abs_dev)
-#             upper = median + (no_stds * mad)
-#             lower = median - (no_stds * mad)
-#             print ("MAD: %s" % mad)
-#         print ("Median: %s, MAD upper: %s, lower %s" % (median, upper, lower))
-#         return upper, lower
+        
+    def getUpperOrLowerLimit(self, values, multiplier, limit_type):
+        """
+        """
+        if limit_type not in ("upper", "lower"):
+            raise ValueError(limit_type)
+        mean = numpy.mean(values)
+        std = numpy.std(values, ddof=1)
+        if limit_type == "upper":
+            return mean + (multiplier * std)
+        elif limit_type == "lower":
+            return mean - (multiplier * std)
         
     def plotSTDLimits(self, ax, values, vmin, vmax, no_std, line_color, plot_axis, plot_upper, plot_lower):
         """
@@ -62,25 +35,18 @@ class Plotter(object):
         """
         if plot_axis not in ["x", "y"]:
             raise ValueError(plot_axis)
-        mean = numpy.mean(values)
-        std = numpy.std(values, ddof=1)
-        upper = mean + (no_std * std)
-        lower = mean - (no_std * std)
+        upper = self.getUpperOrLowerLimit(values, no_std, "upper")
+        lower = self.getUpperOrLowerLimit(values, no_std, "lower")
         if plot_upper:
             if plot_axis == "x":
                 ax.plot([vmin, vmax], [upper,upper], line_color)
-                #print ("plotting [%3.3f - %3.3f], [%3.3f - %3.3f] " % (vmin, vmax, upper, upper))
             else:
                 ax.plot([upper, upper], [vmin, vmax], line_color)
-                #print ("plotting [%3.3f - %3.3f], [%3.3f - %3.3f] " % (upper, upper, vmin, vmax))
         if plot_lower:
             if plot_axis == "x":
                 ax.plot([vmin, vmax], [lower, lower], line_color)
-                #print ("plotting [%3.3f - %3.3f], [%3.3f - %3.3f] " % (vmin, vmax, lower, lower))
             else:
                 ax.plot([lower, lower], [vmin, vmax], line_color)
-                #print ("plotting [%3.3f - %3.3f], [%3.3f - %3.3f] " % (lower, lower, vmin, vmax))
-#             ax.plot([min(x_values), max(x_values)], [lower,lower], line_color)
         return ax
 
         
@@ -100,6 +66,7 @@ class Plotter(object):
         """
         Makes scatter plot and saves it into png file
         """
+        # setup the plot and its titles and axis labels
         fig = Figure()
         canvas = FigureCanvasAgg(fig)
         ax = fig.add_subplot('111')
@@ -112,32 +79,36 @@ class Plotter(object):
         xmax = max(x_vals)
         ymin = min(y_vals)
         ymax = max(y_vals)
-
+        
+        # plot the three standard deviation lines for each axis they are requested
         if plot_std_x_axis:
             ax = self.plotThreeSTDLimits(ax, y_vals, xmin, xmax, plot_axis = "x")
         if plot_std_y_axis:
             ax = self.plotThreeSTDLimits(ax, x_vals, ymin, ymax, plot_axis = "y", plot_lower = False)
-         
+        
+        # calculat and plot the selection line for x axis (unit in std:s)
         if x_std_limit != None:
-            mean = numpy.mean(x_vals)
-            std = numpy.std(x_vals, ddof=1)
-            x_limit = mean + (std * x_std_limit)
+            x_limit = self.getUpperOrLowerLimit(x_vals, x_std_limit, "upper")
             ax.plot([x_limit, x_limit], [ymin, ymax], 'b--')
-            color_map = self.getColorMap(x_vals, x_std_limit, color_map, limit_type = "larger", use_std_limit = True)
+            color_map = self.getColorMap(x_vals, x_std_limit, color_map, limit_type = "upper", use_std_limit = True)
+        
+        # calculate and plot the selection line for y axis (unit in std:s)
         if y_std_limit != None:
-            mean = numpy.mean(y_vals)
-            std = numpy.std(y_vals, ddof=1)
-            y_limit = mean - (std * y_std_limit)
+            y_limit = self.getUpperOrLowerLimit(y_vals, y_std_limit, "lower")
             ax.plot([xmin, xmax], [y_limit, y_limit], 'b--')
             color_map = self.getColorMap(y_vals, y_std_limit, color_map, use_std_limit = True)
             
+        # plot x axis limit
         if x_val_limit != None:
             ax.plot([x_val_limit, x_val_limit], [min(y_vals), max(y_vals)], 'b--')
-            color_map = self.getColorMap(x_vals, x_val_limit, color_map, limit_type = "larger")
+            color_map = self.getColorMap(x_vals, x_val_limit, color_map, limit_type = "upper")
+            
+        # plot y axis limit
         if y_val_limit != None:
             ax.plot([min(x_vals), max(x_vals)], [y_val_limit, y_val_limit], 'b--')
             color_map = self.getColorMap(y_vals, y_val_limit, color_map)
             
+        # use log scale if requested
         if x_log_scale:
             ax.set_xscale('log')
         if y_log_scale:
@@ -148,30 +119,24 @@ class Plotter(object):
     
     
     
-    def getColorMap(self, values, limit, col_map, limit_type = "smaller", use_std_limit = False):
+    def getColorMap(self, values, limit, col_map, limit_type = "lower", use_std_limit = False):
         """
         Makes color map based on given limits. If standard deviation based limit is given, new limit is calculated,
         otherwise the value given is used directly. Any values smaller / larger than the limit is marked red.
         """
-        if limit_type not in ("smaller", "larger"):
+        if limit_type not in ("lower", "upper"):
             raise ValueError(limit_type)
         # calculate limit if std dev is used
         if use_std_limit:
-            #print ("Changing color map limit to std limit. Limit: %3.3f" % limit)
-            mean = numpy.mean(values)
-            std = numpy.std(values, ddof=1)
-            if limit_type == "larger":
-                limit = mean + (limit * std)
+            if limit_type == "upper":
+                limit = self.getUpperOrLowerLimit(values, limit, "upper")
             else: 
-                limit = mean - (limit * std)
-            #print ("New std limit: %3.3f" % limit)
-        #print ("color map values limit: %3.3f mean: %3.3f, min: %3.3f, max: %3.3f" % (limit, numpy.mean(values), 
-        #                                                                              min(values), max(values)))
+                limit = self.getUpperOrLowerLimit(values, limit, "lower")
         for i, val in enumerate(values):
-            if limit_type == "larger":
+            if limit_type == "upper":
                 if val > limit:
                     col_map[i] = "red"
-            elif limit_type == "smaller":
+            elif limit_type == "lower":
                 if val < limit:
                     col_map[i] = "red"
             else:
