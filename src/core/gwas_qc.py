@@ -1,11 +1,12 @@
-#!/usr/bin/python3.5
+#!/apps/python3.5/anaconda3/bin/python
 '''
+#!/usr/bin/python3.5
 Created on 15.12.2015
 Only works on Atlas!
 @author: paakkone
 '''
 
-__version__= "1.12"
+__version__= "1.14"
 
 import os
 import sys
@@ -13,6 +14,7 @@ import subprocess
 import argparse
 import math
 import numpy
+import time
 from collections import OrderedDict
 from plotter import Plotter
 
@@ -321,8 +323,12 @@ class GWAS_QC(object):
         fail_type = "ibd"
         # step 11 - filter high LD regions
         out_fn = in_fn + "_pruning"
-        high_ldl_fn = os.path.join(self.dataset_path, "high-LD-regions.txt")
-        switch1 = "--exclude %s" % high_ldl_fn
+        #high_ldl_fn = os.path.join(self.dataset_path, "high-LD-regions.txt")
+        if not os.path.isfile(self.args.high_ld_regions):
+            print ("Could not find file %s for duplicate filtering" % self.args.high_ld_regions)
+            sys.exit()
+        #switch1 = "--exclude %s" % high_ldl_fn
+        switch1 = "--exclude %s" % self.args.high_ld_regions
         self.runPlinkCommand([switch1,"--range", "--indep-pairwise 50 5 0.2"], in_fn, out_fn)
         # step 12 - generate pairwise IBS
         extract_str = "--extract %s.prune.in" % out_fn
@@ -518,6 +524,8 @@ class GWAS_QC(object):
     def writeAnalysisReport(self):
         report_fn = os.path.join(self.args.output_dir, self.args.report_fn)
         with open(report_fn, 'w') as out_f:
+            out_f.write("Program version: %s\n" % __version__)
+            out_f.write("Running date: %s\n\n" % time.ctime())
             out_f.write("Input dataset:\t%s\n" % self.args.input)
             no_removed = self.failed_samples.getFailCount("sex")
             out_f.write("Removed %d samples in sex check\n" % (no_removed))
@@ -549,21 +557,27 @@ def parseArguments(args):
     """
     Handles the argument parsing
     """
-    parser = argparse.ArgumentParser(description = "Run QC filtering on GWAS datasets")
+    parser = argparse.ArgumentParser(prog = "gwas_qc",
+                                     description = "Run QC filtering on GWAS datasets",
+                                     formatter_class = argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--input", help = "Path to the dataset to be filtered")
     parser.add_argument("--output_dir", help = "Directory for the output files", required = True)
-    parser.add_argument("--missingness", help = "Missingness limit, default is 0.05", type = float, default = 0.05)
-    parser.add_argument("--heterozygosity", help = "Heterozygosity limit, default is 4.0 * sd", type = float, default = 4)
-    parser.add_argument("--C1", help = "Principal component 1, default is sd * 4", type = float, default = 4)
-    parser.add_argument("--C2", help = "Principal component 2, default is sd * 4", type = float, default = 4)
-    parser.add_argument("--pi_hat", help = "Pi-hat value of the genome file, default is 0.1", type = float, default = 0.1)
-    parser.add_argument("--hwe", help = "HWE limit, default is 0.000001", type = float, default = 0.000001)
-    parser.add_argument("--geno", help = "Call rate limit, default is 0.02", type = float, default = 0.02)
-    parser.add_argument("--mac", help = "MAC treshold for imputation, default is 3", type = float, default = 3)
-    parser.add_argument("--repeat", help = "Removing duplicates who's entry is repeated more than this limit (due to contamination). Default is 15",
+    parser.add_argument("--missingness", help = "Missingness limit", type = float, default = 0.05)
+    parser.add_argument("--heterozygosity", help = "Heterozygosity limit = default * sd", type = float, default = 4)
+    parser.add_argument("--C1", help = "Principal component 1 limit = default * sd", type = float, default = 4)
+    parser.add_argument("--C2", help = "Principal component 2 limit = default * sd", type = float, default = 4)
+    parser.add_argument("--pi_hat", help = "Pi-hat value of the genome file", type = float, default = 0.1)
+    parser.add_argument("--hwe", help = "HWE limit", type = float, default = 0.000001)
+    parser.add_argument("--geno", help = "Call rate limit", type = float, default = 0.02)
+    parser.add_argument("--mac", help = "MAC treshold for imputation", type = float, default = 3)
+    parser.add_argument("--repeat", help = "Removing duplicates who's entry is repeated more than this limit (due to contamination).",
                         type = int, default = 15)
     parser.add_argument("--plink_path", help = "Path to the plink executable", default = "/apps/genetics/bin/plink-1.9")
     parser.add_argument("--report_fn", help = "Analysis report file name", default = "analysis_report.txt")
+    parser.add_argument("--high_ld_regions", help = "Path to the file used in duplicate filtering",
+                        default = "/fs/projects/finngen/misc/high-LD-regions.txt")
+    parser.add_argument("--version", help = "Shows the version number of the program",
+                        action = 'version', version = "%(prog)s {version}".format(version=__version__))
     return parser.parse_args(args)
 
 if __name__=='__main__':
