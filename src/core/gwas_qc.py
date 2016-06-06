@@ -6,7 +6,7 @@ Only works on Atlas!
 @author: paakkone
 '''
 
-__version__= "1.14"
+__version__= "1.15"
 
 import os
 import sys
@@ -398,7 +398,8 @@ class GWAS_QC(object):
         mean2 = numpy.mean(c2_vals)
         std2 = numpy.std(c2_vals, ddof=1)
         lower_c2 = mean2 - (c2_std * std2)
-        return upper_c1, lower_c2
+        upper_c2 = mean2 + (c2_std * std2)
+        return upper_c1, lower_c2, upper_c2
     
     def filterMultiDimensionalScaling(self, input_fn, gen_fn):
         """
@@ -432,7 +433,7 @@ class GWAS_QC(object):
                     c2_vals.append(c2)
                     mds_data.append([fid, iid, c1, c2])
         
-        c1_std_upper_limit, c2_std_lower_limit = self.getSTDLimits(c1_vals, c2_vals, c1_limit, c2_limit)            
+        c1_std_upper_limit, c2_std_lower_limit, c2_std_upper_limit = self.getSTDLimits(c1_vals, c2_vals, c1_limit, c2_limit)            
                     
         for fid, iid, c1, c2 in mds_data:
             if c1_limit > 0:
@@ -440,6 +441,8 @@ class GWAS_QC(object):
                     self.failed_samples.addSample(fid, iid, fail_type)
             if c2_limit > 0:
                 if c2 <= c2_std_lower_limit:
+                    self.failed_samples.addSample(fid, iid, fail_type)
+                if c2 >= c2_std_upper_limit:
                     self.failed_samples.addSample(fid, iid, fail_type)
         # values gathered, make scatter plot
         figure_title = "Principal components C1 and C2"

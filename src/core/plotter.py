@@ -92,21 +92,32 @@ class Plotter(object):
             ax.plot([x_limit, x_limit], [ymin, ymax], 'b--')
             color_map = self.getColorMap(x_vals, x_std_limit, color_map, limit_type = "upper", use_std_limit = True)
         
-        # calculate and plot the selection line for y axis (unit in std:s)
+        # calculate and plot the selection line for y axis lower limit (unit in std:s)
         if y_std_limit != None:
             y_limit = self.getUpperOrLowerLimit(y_vals, y_std_limit, "lower")
             ax.plot([xmin, xmax], [y_limit, y_limit], 'b--')
             color_map = self.getColorMap(y_vals, y_std_limit, color_map, use_std_limit = True)
+            
+        # calculate and plot the selection line for y axis upper limit (unit in std:s)
+        if y_std_limit != None:
+            y_limit = self.getUpperOrLowerLimit(y_vals, y_std_limit, "upper")
+            ax.plot([xmin, xmax], [y_limit, y_limit], 'b--')
+            color_map = self.getColorMap(y_vals, y_std_limit, color_map, limit_type = "upper", use_std_limit = True)
             
         # plot x axis limit
         if x_val_limit != None:
             ax.plot([x_val_limit, x_val_limit], [min(y_vals), max(y_vals)], 'b--')
             color_map = self.getColorMap(x_vals, x_val_limit, color_map, limit_type = "upper")
             
-        # plot y axis limit
+        # plot y axis lower limit 
         if y_val_limit != None:
             ax.plot([min(x_vals), max(x_vals)], [y_val_limit, y_val_limit], 'b--')
             color_map = self.getColorMap(y_vals, y_val_limit, color_map)
+        
+        # plot y axis upper limit 
+        if y_val_limit != None:
+            ax.plot([min(x_vals), max(x_vals)], [y_val_limit, y_val_limit], 'b--')
+            color_map = self.getColorMap(y_vals, y_val_limit, color_map, limit_type = "upper")
             
         # use log scale if requested
         if x_log_scale:
