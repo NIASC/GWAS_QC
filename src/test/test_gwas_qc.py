@@ -21,7 +21,7 @@ class Test(unittest.TestCase):
         input_par = ["--input", ds_name, "--output_dir", output_dir, "--plink_path", "C:/apps/plink-1_90/plink.exe"]
         return GWAS_QC(input_par)
 
-
+    
 
 #     def testScatterPlot(self):
 #         self.gwas_qc.filterHeterozygosityAndMissingRate()
