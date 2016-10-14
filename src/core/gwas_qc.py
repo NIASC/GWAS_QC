@@ -60,8 +60,11 @@ class GWAS_QC(object):
     def main(self):
         self.plink_commands_f = open(self.plink_fn, 'w')
         # filter sex
-        filter = FilterBySex(self.args, plink_commands_f = self.plink_commands_f)
-        sex_filtered = filter.runComponent(self.args.input)
+        if self.args.noX:
+            sex_filtered = self.args.input
+        else:
+            filter = FilterBySex(self.args, plink_commands_f = self.plink_commands_f)
+            sex_filtered = filter.runComponent(self.args.input)
         
         # filter missingness / heterozygosity
         filter = FilterHeterozygosityAndMissingRate(self.args, plink_commands_f = self.plink_commands_f)
@@ -122,6 +125,8 @@ def parseArguments(args):
     parser.add_argument("--mac", help = "MAC treshold for imputation", type = float, default = 3)
     parser.add_argument("--repeat", help = "Removing duplicates who's entry is repeated more than this limit (due to contamination).",
                         type = int, default = 15)
+    parser.add_argument("--noX", help = "No X chromosome in the data - skip the sex checks", default = False, 
+                        action = "store_true")
 #    parser.add_argument("--plink_path", help = "Path to the plink executable", default = "/apps/genetics/bin/plink-1.9")
     parser.add_argument("--report_fn", help = "Analysis report file name", default = "analysis_report.txt")
     parser.add_argument("--high_ld_regions", help = "Path to the file used in duplicate filtering",
