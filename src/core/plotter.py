@@ -81,13 +81,15 @@ class Plotter(object):
         if plot_std_x_axis:
             ax = self.plotThreeSTDLimits(ax, y_vals, xmin, xmax, plot_axis = "x")
         if plot_std_y_axis:
-            ax = self.plotThreeSTDLimits(ax, x_vals, ymin, ymax, plot_axis = "y", plot_lower = False)
+            ax = self.plotThreeSTDLimits(ax, x_vals, ymin, ymax, plot_axis = "y")
+            #ax = self.plotThreeSTDLimits(ax, x_vals, ymin, ymax, plot_axis = "y", plot_lower = False)
         
         # calculate and plot the selection line for x axis (unit in std:s)
         if x_std_limit != None:
             x_lower, x_upper = self.getUpperAndLowerLimit(x_vals, x_std_limit)
+            ax.axvline(x=x_lower, color='b')
             ax.axvline(x=x_upper, color='b')
-        
+
         # calculate and plot the selection line for y axis lower limit (unit in std:s)
         if y_std_limit != None:
             y_lower, y_upper = self.getUpperAndLowerLimit(y_vals, y_std_limit)

@@ -103,6 +103,8 @@ class FilterMDS(Component):
         for fid, iid, c1, c2 in mds_data:
             limit_violation = False
             if c1_limit > 0:
+                if c1 <= c1_std_lower_limit:
+                    limit_violation = True
                 if c1 >= c1_std_upper_limit:
                     limit_violation = True
             if c2_limit > 0:
