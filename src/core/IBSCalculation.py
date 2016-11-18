@@ -26,6 +26,7 @@ class IBSCalculation(Component):
         if round_no != None:
             out_fn += "%d" % round_no
         self.plinkRunner.runPlinkCommand([switch1,switch2, switch3,"--indep-pairwise 50 5 0.2"], in_fn, out_fn)
+        self.tempFilesCreated(out_fn)
         return out_fn
         
     def runPlink2(self, in_fn, pruned_fn, round_no):
@@ -38,6 +39,7 @@ class IBSCalculation(Component):
         if round_no != None:
             out_fn += "%d" % round_no
         self.plinkRunner.runPlinkCommand([extract_str, "--genome"], in_fn, out_fn)
+        self.tempFilesCreated(out_fn)
         return out_fn
     
     def runComponent(self, in_fn, filterContaminations = False, round_no = None):
@@ -55,6 +57,8 @@ class IBSCalculation(Component):
         new_dataset_fn = self.removeIndividuals(in_fn)
         # return new file set name
         print ("Returning IBS calc run: new_dataset_fn %s  pihat_fn %s" % (new_dataset_fn, pihat_fn))
+        # read log file for reporting of number of samples
+        self.log.readLogFile(new_dataset_fn + ".log")
         return new_dataset_fn, pihat_fn
     
     def findFailedSamples(self, dataset_fn):

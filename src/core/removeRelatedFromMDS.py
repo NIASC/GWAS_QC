@@ -56,6 +56,8 @@ class RemoveRelatedFromMDS(Component):
         self.writeFailedSamples()
         # remove samples and write new file set
         new_dataset_fn = self.removeIndividuals(dataset_fn)
+        # read log file for reporting of number of samples
+        self.log.readLogFile(new_dataset_fn + ".log")
         # return new file set name
         return new_dataset_fn
     

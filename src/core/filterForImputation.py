@@ -23,6 +23,7 @@ class FilterForImputation(Component):
         freq_fn = "calc_freq"
         freq_fn = os.path.join(self.args.output_dir, freq_fn)
         self.plinkRunner.runPlinkCommand(["--freq"], input_fn, freq_fn)
+        self.tempFilesCreated(freq_fn)
         return freq_fn
      
     def runPlink2(self, input_fn, fail_fn):
@@ -34,6 +35,7 @@ class FilterForImputation(Component):
           
         switch1 = "--exclude %s" % fail_fn
         self.plinkRunner.runPlinkCommand([switch1, "--make-bed"], input_fn, out_fn)
+        self.tempFilesCreated(out_fn)
         return out_fn
     
     
@@ -45,6 +47,9 @@ class FilterForImputation(Component):
         
         # exclude failing snips
         impu_fn = self.runPlink2(ds_name, failed_fn)
+        # read log file for reporting of number of samples
+        self.log.readLogFile(impu_fn + ".log")
+        # return new file set name
         return impu_fn
         
     def findFailedSamples(self, input_fn, freq_fn):

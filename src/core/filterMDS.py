@@ -14,7 +14,8 @@ class FilterMDS(Component):
     def __init__(self, args, failed_fn = None, plink_commands_f = None):
         self.fail_type = "mds"
         super().__init__(args, failed_fn = failed_fn, plink_commands_f = plink_commands_f)
-  
+        self.no_mds_removals = None
+        
     def runPlink(self, dataset_fn, gen_fn, round_no):
         gen_fn = gen_fn + ".genome"
         switch1 = "--read-genome %s" % gen_fn
@@ -29,6 +30,7 @@ class FilterMDS(Component):
         output_fn = "calc_mds_round_%d" % round_no
         output_fn = os.path.join(self.args.output_dir, output_fn)
         self.plinkRunner.runPlinkCommand([switch1, "--cluster", "--mds-plot 10 "], dataset_fn, output_fn)
+        self.tempFilesCreated(output_fn)
         return output_fn
         
     def runComponent(self, dataset_fn, gen_fn, round_no):
@@ -43,6 +45,7 @@ class FilterMDS(Component):
         else:
             fail_fn = "remove_mds_all.txt"
             out_fn = "removed_mds_final"
+            self.no_mds_removals = len(self.failed_samples)
         fail_fn = os.path.join(self.args.output_dir, fail_fn)
         out_fn = os.path.join(self.args.output_dir, out_fn)
         self.writeFailedSamples(fail_fn)
@@ -50,8 +53,13 @@ class FilterMDS(Component):
         new_dataset_fn = self.removeIndividuals(dataset_fn, failed_samples = fail_fn, output_fn = out_fn)
         # plotting
         self.plot(c1_vals, c2_vals, c1_limit, c2_limit, round_no, cm)
+        # read log file for reporting of number of samples
+        self.log.readLogFile(new_dataset_fn + ".log")
         # return new file set name
         return new_dataset_fn, failed_no
+    
+    def getNoFinalMDSRemovals(self):
+        return self.no_mds_removals
     
     def getMSDLimit(self, round_no):
         string_limits = (self.args.C1_string, self.args.C2_string)

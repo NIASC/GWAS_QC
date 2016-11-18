@@ -58,6 +58,7 @@ class FilterHeterozygosityAndMissingRate(Component):
         switches = ["--missing","--allow-no-sex"]
         # calculate missingness
         self.plinkRunner.runPlinkCommand(switches, dataset_fn, out_fn)
+        self.tempFilesCreated(out_fn)
         return out_fn
     
     def runPlink2(self, imiss_removed_fn):
@@ -72,6 +73,7 @@ class FilterHeterozygosityAndMissingRate(Component):
         switches = [switch1, switch2, "--het","--allow-no-sex"]
         # calculate missingness
         self.plinkRunner.runPlinkCommand(switches, imiss_removed_fn, out_fn)
+        self.tempFilesCreated(out_fn)
         return out_fn
         
     def findFailedSamples(self, dataset_fn, remove_het_f):
@@ -152,5 +154,8 @@ class FilterHeterozygosityAndMissingRate(Component):
         new_dataset_fn = self.removeIndividuals(imiss_removed_fn, failed_samples = remove_het_fn, output_fn = "removed_heterozygosity")
         # plot missingness_heterozygosity plot
         self.plot(cm)
+        # read log file for reporting of number of samples
+        # there are two log files in this..
+        self.log.readLogFile(new_dataset_fn + ".log")
         # return new file set name
         return new_dataset_fn

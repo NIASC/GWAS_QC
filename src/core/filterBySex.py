@@ -19,6 +19,7 @@ class FilterBySex(Component):
         out_fn = os.path.join(self.args.output_dir, out_fn)
         switches = ["--check-sex"]
         self.plinkRunner.runPlinkCommand(switches, dataset_fn, out_fn)
+        self.tempFilesCreated(out_fn)
         return out_fn
     
     def findFailedSamples(self, out_fn):
@@ -45,6 +46,8 @@ class FilterBySex(Component):
         self.writeFailedSamples()
         # remove samples and write new file set
         new_dataset_fn = self.removeIndividuals(dataset_fn)
+        # read log file for reporting of number of samples
+        self.log.readLogFile(new_dataset_fn + ".log")
         # return new file set name
         return new_dataset_fn
     

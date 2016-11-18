@@ -27,6 +27,7 @@ class FilterSNPExclusion(Component):
         switch1 = "--geno %s" % self.args.geno
         switch2 = "--hwe %s" % self.args.hwe
         self.plinkRunner.runPlinkCommand([switch1, switch2, "--make-bed"], input_fn, out_fn)
+        # don't store these files to files created to avoid them being deleted as temporary ones
         return out_fn
    
    
@@ -36,15 +37,10 @@ class FilterSNPExclusion(Component):
         remove_fn = os.path.join(self.args.output_dir, remove_fn)
         remove_ds_fn = "removed_all_mds"
         remove_ds_fn = self.removeIndividuals(ds_name, failed_samples = remove_fn, output_fn = remove_ds_fn)
-#         # remove values with greater than given pi-hat value
-#         remove_mds_rel_fn = "remove_mds_rel.txt"
-#         remove_mds_rel_fn = os.path.join(self.args.output_dir, remove_mds_rel_fn)
-#         removed_mds_rel_fn = "removed_mds_rel"
-#         removed_mds_rel_fn = self.removeIndividuals(remove_ds_fn, failed_samples = remove_mds_rel_fn, output_fn = removed_mds_rel_fn)
-#         qc_done_fn = self.runPlink(removed_mds_rel_fn)
         # qc snp filtering
         qc_done_fn = self.runPlink(remove_ds_fn)
-        #qc_done_fn = self.runPlink(ds_name)
+        # read log file for reporting of number of samples
+        self.log.readLogFile(qc_done_fn + ".log")
         return qc_done_fn
         
     def findFailedSamples(self):
