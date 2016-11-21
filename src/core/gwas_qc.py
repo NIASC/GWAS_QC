@@ -40,6 +40,7 @@ class GWAS_QC(object):
         with open(report_fn, 'w') as out_f:
             out_f.write("Program version: %s\n" % __version__)
             out_f.write("Running date: %s\n\n" % time.ctime())
+            out_f.write("Working directory: \n%s\n" % os.getcwd())
             out_f.write("Commandline:\n%s\n\n" % " ".join(sys.argv))
             self.printParameters(out_f)
             self.printRemoved(out_f)
@@ -84,7 +85,7 @@ class GWAS_QC(object):
         end_time = datetime.datetime.now()
         elapsed_time = end_time - self.start_time
         hours = int(elapsed_time / datetime.timedelta(hours=1))
-        minutes = int(elapsed_time / datetime.timedelta(minutes = 1))
+        minutes = int(elapsed_time / datetime.timedelta(minutes = 1)) % 60
         seconds = int(elapsed_time.total_seconds() %  60)
         time_str = "\nTime elapsed: %d hours, %d minutes, %d seconds" % (hours, minutes, seconds)
         return time_str
