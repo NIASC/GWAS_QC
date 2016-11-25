@@ -55,7 +55,9 @@ class FilterHeterozygosityAndMissingRate(Component):
         root, head = os.path.split(dataset_fn)
         out_fn = "check_missingness"
         out_fn = os.path.join(self.args.output_dir, out_fn)
-        switches = ["--missing","--allow-no-sex"]
+        switch1 = "--geno %s" % self.geno
+        switch2 = "--hwe %s" % self.hwe
+        switches = [switch1, switch2, "--missing","--allow-no-sex"]
         # calculate missingness
         self.plinkRunner.runPlinkCommand(switches, dataset_fn, out_fn)
         self.tempFilesCreated(out_fn)

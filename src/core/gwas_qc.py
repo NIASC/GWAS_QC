@@ -98,8 +98,9 @@ class GWAS_QC(object):
         uniq_files = set(self.files_to_delete)
         print ("Deleting %d intermediate files" % len(uniq_files))
         for fn in uniq_files:
-            #print ("Deleting file %s" % fn)
-            os.remove(fn)
+            # don't delete log files
+            if not fn.endswith(".log"):
+                os.remove(fn)
     
     def main(self):
         self.plink_commands_f = open(self.plink_fn, 'w')
@@ -162,7 +163,8 @@ class GWAS_QC(object):
         # result report
         self.writeAnalysisReport()
         self.plink_commands_f.close()
-        if self.args.del_intermediate:
+        if not self.args.keep_all:
+            # keep all was not selected - delete intermediate files
             self.deleteIntermediateFiles()
         
 def parseArguments(args):
@@ -190,10 +192,10 @@ def parseArguments(args):
                         type = int, default = 15)
     parser.add_argument("--noX", help = "No X chromosome in the data - skip the sex checks", default = False, 
                         action = "store_true")
-    parser.add_argument("--del_intermediate", help = "Delete intermediate files", default = False,
+    parser.add_argument("--keep_all", help = "Keeps all intermediate files", default = False,
                         action = "store_true")
 #    parser.add_argument("--plink_path", help = "Path to the plink executable", default = "/apps/genetics/bin/plink-1.9")
-    parser.add_argument("--report_fn", help = "Analysis report file name", default = "analysis_report.txt")
+    parser.add_argument("--report_fn", help = "QC report file name", default = "qc_report.txt")
     parser.add_argument("--high_ld_regions", help = "Path to the file used in duplicate filtering",
                         default = "/fs/projects/finngen/misc/high-LD-regions.txt")
     parser.add_argument("--version", help = "Shows the version number of the program",
