@@ -4,7 +4,7 @@ Created on 18.8.2016
 
 @author: paakkone
 '''
-__version__= "1.3"
+__version__= "1.31"
 
 import sys
 import os
